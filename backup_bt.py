@@ -786,107 +786,56 @@ def printSQN(analyzer):
     print('SQN: {}'.format(sqn))
 
 
-class MonteCarlo(bt.Analyzer):
+def monte_carlo(trade_list, equity_init, margin, sim_num):
 
+    df_exp = pd.DataFrame()
 
-  params = (('start', 100000),
-              ('end',375000),
-              ('margin', 50000),
-              ('iter',2500),
-              ('lotsize',1))
+    for eq in range(equity_init, equity_init * 40, 5000):
+        pnl_pro = []
+        win_pct = []
+        ret_pro = []
+        ruin_pro = []
+        mdd_pro = []
+        rrdd = []
 
-  def __init__(self):
-    self.trade_list = []
-    self.step = self.p.start/4
-    self.rand_val = 0.0
-    self.data = pd.DataFrame()
-    
+        equity_loop = eq
+        max_equity = eq
+        print('-' * 100, 'Eq: {}'.format(equity_loop))
 
-  def notify_trade(self, trade):
+        for sim in range(sim_num + 1):
+            np.random.shuffle(trade_list)
+            trades = np.insert(trade_list, 0, equity_loop)
 
-    if trade.isclosed:
-      self.trades = trade.pnlcomm
-      self.trade_list.append(self.trades)
-      
-  def get_analysis(self):
-    df = pd.DataFrame(self.trade_list)
-    lotsize = 1
-    
-    for i in range(self.p.start, self.p.end, int(self.step)):
-      
-      max_equity = i
-      drawdown = 0
-      ruin_list = []
-      val_list = []
-      drawdown_list = []
-      return_list = []
-      dd_ret_list = []
-      equity_list = []
-      diff_list = []
+            pnl = np.cumsum(trades)
+            pnl_pro.append(pnl)
+            wins = len([e for e in pnl if e > equity_loop]) / len(trade_list)
+            win_pct.append(wins)
 
-      for trades in range(2501):
-        random.shuffle(self.trade_list)
-        trades  = random.choice(self.trade_list)
-        equity = trades + i
-        equity_list.append(equity)
+            ret = [((e - equity_loop) / equity_loop) for e in pnl]
+            ret_pro.append(ret)
 
-      for val in equity_list:
-          ret_ = ((val/i)-1)*100
-          return_list.append(ret_)
-          diff = val - i
-          diff_list.append(diff)
+            ruin = len([e for e in pnl if e < margin]) / len(trade_list)
+            ruin_pro.append(ruin)
 
-          if val > max_equity:
-            max_equity = val
-          else:
-            dd = 1-(val/max_equity)
-            if dd > drawdown:
-              drawdown = dd
-              drawdown_list.append(drawdown)
-          if drawdown != 0:
-              dd_ret = ((val / i)-1)/drawdown
-              dd_ret_list.append(dd_ret)
-          if val < self.p.margin:
-            ruin_list.append(val)
+            i = np.argmax(np.maximum.accumulate(pnl) - pnl)
+            j = np.argmax(pnl[:i])
+            mdd = (pnl[j] - pnl[i]) / pnl[j]
+            mdd_pro.append(mdd)
 
-      ruin = int(len(ruin_list)/self.p.iter)
-      if ruin == 1:
-        print('Ruined')
-        continue
-      drawdown = np.median(drawdown_list)
-      return_ = np.median(return_list)
-      equity_median = np.median(equity_list)
-      drawdown_ret_ratio = np.median(dd_ret_list)
-      var = np.var(equity_list)
-      stdev = math.sqrt(var)
-      median_profit = equity_median - i
-      win = []
-      lose = []
-      for equity in equity_list:
-        if equity > i:
-          win.append(equity)
-        elif equity < i:
-          lose.append(equity)
+            rr_dd = ret / mdd
+            rrdd.append(rr_dd)
 
-      win_pct = ((len(win) / len(equity_list)))*100
-      loss_pct = ((len(lose) / len(equity_list)))*100
+        df_carlo = pd.DataFrame({
+            'Initial Equity': equity_loop,
+            'Median Profit': np.median(pnl_pro) - equity_loop,
+            'Return%': np.median(ret_pro) * 100,
+            'Win%': [(np.min(win_pct), np.max(win_pct))],
+            'Drawdown%': np.median(mdd_pro)*100,
+            'Return/DD': np.median(rrdd), }, index=[0], columns=['Initial Equity',
+                                                                 'Median Profit', 'Return', 'Win%', 'Drawdown', 'Return/DD'])
+        df_exp = df_exp.append(df_carlo)
 
-      df3 = pd.DataFrame({
-                        'Initial Equity': i,
-                        'Final Equity': equity_median,
-                        'Median Profit': median_profit,
-                        'Return':return_,
-                        'Win%':win_pct,
-                        'Loss%':loss_pct,
-                        'Drawdown': (drawdown)*100,
-                        'Return/DD': drawdown_ret_ratio,
-                        'Standard Deviation': stdev,
-                        'Variance': var}, index = [0], columns = ['Initial Equity',
-                        'Final Equity','Median Profit','Return','Win%','Loss%','Drawdown','Return/DD','Standard Deviation','Variance'])
-      self.data = self.data.append(df3)
-
-    data_csv = self.data.to_csv('MonteCarlo.csv')
-    print('Data Recorded')
+    df_exp.to_csv('monte_carlo.csv')
 
 
 def df_converter(csv):
