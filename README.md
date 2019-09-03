@@ -57,6 +57,9 @@ dataname=df_converter(datalist[0][0])
 *the commission scheme is based on the OANDA commission scheme
 https://www1.oanda.com/register/docs/divisions/oc/price_sheet.pdf
 
+5. Trading logic goes into the next() method
+6. Refer to the https://www.backtrader.com/docu/dataautoref/ for information on order types and other features.
+
 You should end up with data like this after you run the program
 ```
  pctchnge%    pnl/bar    ref    mae%  Data      priceout    value    mfe%        pnl  datein                 size  dir      pnl%      cumpnl  dateout                nbars    pricein
