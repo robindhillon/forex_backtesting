@@ -28,6 +28,10 @@ pip install sklearn
 ```
 pip install tabulate
 ```
+7. Matplotlib
+```
+pip install matplotlib
+```
 
 ### How to get the program running
 
